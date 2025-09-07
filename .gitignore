@@ -1,0 +1,27 @@
+# Xcode build output
+DerivedData/
+build/
+
+# User-specific settings
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+xcuserdata/
+
+# App packaging
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# macOS clutter
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Thumbnails
+._*
+
+# GitHub release artifacts
+*.dmg
+*.zip
