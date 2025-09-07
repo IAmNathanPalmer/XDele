@@ -30,7 +30,7 @@ A macOS SwiftUI app that works from your X data archive and official API token.
 ---
 
 ## 3. Build the App
-###(Skip if not building from source code)
+(Skip if not building from source code)
 1. Open the project in Xcode.
 2. Set the run target to **My Mac**.
 3. Select **Product → Build (⌘B)**.
@@ -75,7 +75,7 @@ Click **Clear X data** to reset queues and state.
 
 ## 7. Troubleshooting
 - **No deletions happening**: confirm your token is user-scoped with write permissions, and your user ID is correct.
-- **Nothing to do**: ensure the correct `data/` folder is selected and filters aren’t too restrictive.
+- **Nothing to do**: ensure the correct data/ folder is selected and filters aren’t too restrictive.
 - **Progress stuck**: queues may be empty. Clear X data, re-select the folder, and restart.  
 - **macOS Gatekeeper warning**: right-click the app → Open to approve.
 
