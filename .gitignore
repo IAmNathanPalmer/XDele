@@ -25,3 +25,9 @@ xcuserdata/
 # GitHub release artifacts
 *.dmg
 *.zip
+
+# Xcode user state / local cruft
+xcuserdata/
+*.xcuserstate
+DerivedData/
+*.xccheckout

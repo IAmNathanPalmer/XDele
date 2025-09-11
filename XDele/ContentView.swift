@@ -676,7 +676,7 @@ struct ContentView: View {
         ]
 
         // Signature params = query + body + oauth
-        var sigParams = queryParams.merging(bodyParams) { $1 }.merging(oauthParams) { $1 }
+        let sigParams = queryParams.merging(bodyParams) { $1 }.merging(oauthParams) { $1 }
         let paramString = sigParams
             .map { (pct($0.key), pct($0.value)) }
             .sorted { $0.0 < $1.0 }
