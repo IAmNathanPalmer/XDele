@@ -14,22 +14,47 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Affero General Public License for more details.
 //
-// You should have received a copy of the GNU Affero General Public License
-// along with this program. If not, see <https://www.gnu.org/licenses/agpl-3.0.html>.
+// See <https://www.gnu.org/licenses/agpl-3.0.html>.
+
 import SwiftUI
 import UniformTypeIdentifiers
+import CommonCrypto   // for HMAC-SHA1 (OAuth 1.0a)
 
 struct ContentView: View {
+    // MARK: - Auth mode
+
+    enum AuthMode: String, CaseIterable, Identifiable {
+        case oauth1 = "OAuth 1.0a"
+        case oauth2 = "OAuth 2.0"
+        var id: String { rawValue }
+    }
+
+    @State private var authMode: AuthMode = .oauth1   // default
+
+    // MARK: - Window size persistence (macOS 14+)
+    @AppStorage("XD_winWidth")  private var storedWidth: Double  = 720
+    @AppStorage("XD_winHeight") private var storedHeight: Double = 600
+
     // MARK: - User config
-    @State private var accessToken = ""
+
+    // OAuth 1.0a credentials
+    @State private var apiKey = ""                // consumer key
+    @State private var apiSecret = ""             // consumer secret
+    @State private var accessToken1 = ""          // OAuth1 access token
+    @State private var accessTokenSecret1 = ""    // OAuth1 token secret
+
+    // OAuth 2.0 user token (bearer)
+    @State private var accessToken2 = ""          // OAuth2 user token
+
+    // Common
     @State private var userId = ""
-    @State private var archiveFolderPath = ""          // folder that contains tweets*.js + likes*.js
+    @State private var archiveFolderPath = ""
     @State private var maxDeletes = "99"
     @State private var dryRun = true
 
     // Filters
-    @State private var includeKeywords = ""            // comma-separated
-    @State private var excludeKeywords = ""            // comma-separated
+    @State private var includeKeywords = ""
+    @State private var excludeKeywords = ""
     @State private var onlyRepliesToOthers = true
     @State private var includeRetweets = false
     @State private var unlikeLikes = false
@@ -59,89 +84,126 @@ struct ContentView: View {
     var progress: Double { totalIDs == 0 ? 0 : Double(deletedSoFar) / Double(totalIDs) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Group {
-                TextField("Access Token (OAuth2 user token)", text: $accessToken).textFieldStyle(.roundedBorder)
-                TextField("User ID (numeric)", text: $userId).textFieldStyle(.roundedBorder)
+        GeometryReader { geo in
+            let size = geo.size
 
-                HStack(spacing: 8) {
-                    TextField("Folder with tweets*.js (archive’s data/ folder)", text: $archiveFolderPath)
-                        .textFieldStyle(.roundedBorder)
-                    Button("Browse…") { showFolderPicker = true }
-                        .keyboardShortcut("o")
-                }
-                .fileImporter(isPresented: $showFolderPicker, allowedContentTypes: [.folder], allowsMultipleSelection: false) { result in
-                    switch result {
-                    case .success(let urls):
-                        if let url = urls.first {
-                            archiveFolderPath = url.path
-                            appendLog("[INFO] Selected folder: \(url.path)")
+            VStack(alignment: .leading, spacing: 12) {
+                Group {
+                    // Auth mode — Option A (label + picker with empty visible label)
+                    HStack {
+                        Text("Auth Mode:")
+                        Picker("", selection: $authMode) {
+                            ForEach(AuthMode.allCases) { mode in
+                                Text(mode.rawValue).tag(mode)
+                            }
                         }
-                    case .failure(let err):
-                        appendLog("[WARN] Folder chooser failed: \(err.localizedDescription)")
+                        .pickerStyle(.segmented)
+                        .frame(width: 320)
                     }
-                }
 
-                HStack {
-                    TextField("Max deletes per hour", text: $maxDeletes)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 200)
-                    Toggle("Dry Run (don’t actually delete)", isOn: $dryRun)
-                }
-            }
-
-            Group {
-                TextField("Include keywords (comma-separated)", text: $includeKeywords)
-                    .textFieldStyle(.roundedBorder)
-                TextField("Exclude keywords (comma-separated)", text: $excludeKeywords)
-                    .textFieldStyle(.roundedBorder)
-
-                Toggle("Only replies to others", isOn: $onlyRepliesToOthers)
-                Toggle("Include retweets", isOn: $includeRetweets)
-                Toggle("Unlike liked posts", isOn: $unlikeLikes)
-            }
-
-            HStack(spacing: 10) {
-                Button(isRunning ? "Stop" : "Start") {
-                    if isRunning {
-                        isRunning = false
+                    // Auth-specific fields
+                    if authMode == .oauth1 {
+                        TextField("API Key (consumer key)", text: $apiKey).textFieldStyle(.roundedBorder)
+                        SecureField("API Key Secret (consumer secret)", text: $apiSecret).textFieldStyle(.roundedBorder)
+                        TextField("Access Token (OAuth 1.0a)", text: $accessToken1).textFieldStyle(.roundedBorder)
+                        SecureField("Access Token Secret (OAuth 1.0a)", text: $accessTokenSecret1).textFieldStyle(.roundedBorder)
                     } else {
-                        isRunning = true
-                        Task { await runDeleter() }
+                        SecureField("Access Token (OAuth 2.0 Bearer)", text: $accessToken2).textFieldStyle(.roundedBorder)
+                    }
+
+                    TextField("User ID (numeric)", text: $userId).textFieldStyle(.roundedBorder)
+
+                    HStack(spacing: 8) {
+                        TextField("Folder with tweets*.js (archive’s data/ folder)", text: $archiveFolderPath)
+                            .textFieldStyle(.roundedBorder)
+                        Button("Browse…") { showFolderPicker = true }
+                            .keyboardShortcut("o")
+                    }
+                    .fileImporter(isPresented: $showFolderPicker, allowedContentTypes: [.folder], allowsMultipleSelection: false) { result in
+                        switch result {
+                        case .success(let urls):
+                            if let url = urls.first {
+                                archiveFolderPath = url.path
+                                appendLog("[INFO] Selected folder: \(url.path)")
+                            }
+                        case .failure(let err):
+                            appendLog("[WARN] Folder chooser failed: \(err.localizedDescription)")
+                        }
+                    }
+
+                    HStack {
+                        TextField("Max deletes per hour", text: $maxDeletes)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 200)
+                        Toggle("Dry Run (don’t actually delete)", isOn: $dryRun)
                     }
                 }
-                .buttonStyle(.borderedProminent)
 
-                Button("Clear X data") { clearXData() }
-                    .buttonStyle(.bordered)
-                    .help("Remove queued IDs and state from Application Support/XD")
+                Group {
+                    TextField("Include keywords (comma-separated)", text: $includeKeywords)
+                        .textFieldStyle(.roundedBorder)
+                    TextField("Exclude keywords (comma-separated)", text: $excludeKeywords)
+                        .textFieldStyle(.roundedBorder)
+
+                    Toggle("Only replies to others", isOn: $onlyRepliesToOthers)
+                    Toggle("Include retweets", isOn: $includeRetweets)
+                    Toggle("Unlike liked posts", isOn: $unlikeLikes)
+                }
+
+                HStack(spacing: 10) {
+                    Button(isRunning ? "Stop" : "Start") {
+                        if isRunning {
+                            isRunning = false
+                        } else {
+                            isRunning = true
+                            Task { await runDeleter() }
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button("Clear X data") { clearXData() }
+                        .buttonStyle(.bordered)
+                        .help("Remove queued IDs and state from Application Support/XD")
+                }
+
+                // Progress + ETA
+                Group {
+                    ProgressView(value: progress).frame(maxWidth: .infinity)
+                    HStack {
+                        Text("\(deletedSoFar)/\(totalIDs) (\(Int(progress*100))%)")
+                            .font(.caption).monospacedDigit()
+                        Spacer()
+                        let (etaSec, rate) = computeETA()
+                        Text("ETA ~ \(fmtETA(etaSec))  @ \(String(format: "%.1f", rate))/hr")
+                            .font(.caption).monospacedDigit()
+                    }
+                }
+                .padding(.vertical, 4)
+
+                Divider()
+                Text("Log").font(.headline)
+                ScrollView {
+                    Text(log)
+                        .font(.system(.footnote, design: .monospaced))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(height: 320)
             }
-
-            // Progress + ETA
-            Group {
-                ProgressView(value: progress).frame(maxWidth: .infinity)
-                HStack {
-                    Text("\(deletedSoFar)/\(totalIDs) (\(Int(progress*100))%)")
-                        .font(.caption).monospacedDigit()
-                    Spacer()
-                    let (etaSec, rate) = computeETA()
-                    Text("ETA ~ \(fmtETA(etaSec))  @ \(String(format: "%.1f", rate))/hr")
-                        .font(.caption).monospacedDigit()
+            .padding()
+            .frame(minWidth: 600,
+                   idealWidth: CGFloat(storedWidth),
+                   maxWidth: .infinity,
+                   minHeight: 400,
+                   idealHeight: CGFloat(storedHeight),
+                   maxHeight: .infinity)
+            // macOS 14+ two-parameter onChange
+            .onChange(of: size) { _, newSize in
+                if newSize.width > 100 && newSize.height > 100 {
+                    storedWidth = Double(newSize.width)
+                    storedHeight = Double(newSize.height)
                 }
             }
-            .padding(.vertical, 4)
-
-            Divider()
-            Text("Log").font(.headline)
-            ScrollView {
-                Text(log)
-                    .font(.system(.footnote, design: .monospaced))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .frame(height: 320)
         }
-        .padding()
-        .frame(width: 720)
     }
 
     // MARK: - Main loop
@@ -149,10 +211,22 @@ struct ContentView: View {
     func runDeleter() async {
         log = ""
         appendLog("[INFO] XD starting…")
-        guard !accessToken.isEmpty, !userId.isEmpty else {
-            appendLog("[FATAL] Missing access token or user ID.")
-            isRunning = false
-            return
+        // Validate required fields per mode
+        switch authMode {
+        case .oauth1:
+            guard !apiKey.isEmpty, !apiSecret.isEmpty,
+                  !accessToken1.isEmpty, !accessTokenSecret1.isEmpty,
+                  !userId.isEmpty else {
+                appendLog("[FATAL] Missing OAuth 1.0a keys/tokens or user ID.")
+                isRunning = false
+                return
+            }
+        case .oauth2:
+            guard !accessToken2.isEmpty, !userId.isEmpty else {
+                appendLog("[FATAL] Missing OAuth 2.0 token or user ID.")
+                isRunning = false
+                return
+            }
         }
 
         let capPerHour = max(1, Int(maxDeletes) ?? 99)
@@ -244,7 +318,13 @@ struct ContentView: View {
         guard let url = URL(string:"https://api.twitter.com/2/tweets/\(id)") else { return false }
         var req = URLRequest(url: url)
         req.httpMethod = "DELETE"
-        req.addValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+
+        guard let header = buildAuthHeader(method: "DELETE", url: url) else {
+            appendLog("[FATAL] Could not build auth header.")
+            return false
+        }
+        req.setValue(header, forHTTPHeaderField: "Authorization")
+
         do {
             let (data, resp) = try await URLSession.shared.data(for: req)
             guard let http = resp as? HTTPURLResponse else { return false }
@@ -260,6 +340,9 @@ struct ContentView: View {
                 try? await Task.sleep(nanoseconds: 900_000_000_000)
             } else {
                 appendLog("[WARN] Delete \(id) failed (HTTP \(http.statusCode))")
+                if authMode == .oauth2 {
+                    appendLog("[HINT] If using OAuth 2.0, this endpoint may require OAuth 1.0a user context.")
+                }
             }
             return false
         } catch {
@@ -276,7 +359,13 @@ struct ContentView: View {
         guard let url = URL(string:"https://api.twitter.com/2/users/\(userId)/likes/\(tweetId)") else { return false }
         var req = URLRequest(url: url)
         req.httpMethod = "DELETE"
-        req.addValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+
+        guard let header = buildAuthHeader(method: "DELETE", url: url) else {
+            appendLog("[FATAL] Could not build auth header.")
+            return false
+        }
+        req.setValue(header, forHTTPHeaderField: "Authorization")
+
         do {
             let (_, resp) = try await URLSession.shared.data(for: req)
             guard let http = resp as? HTTPURLResponse else { return false }
@@ -289,11 +378,31 @@ struct ContentView: View {
                 try? await Task.sleep(nanoseconds: 900_000_000_000)
             } else {
                 appendLog("[WARN] Unlike \(tweetId) failed (HTTP \(http.statusCode))")
+                if authMode == .oauth2 {
+                    appendLog("[HINT] If using OAuth 2.0, this endpoint may require OAuth 1.0a user context.")
+                }
             }
             return false
         } catch {
             appendLog("[WARN] Unlike \(tweetId) error: \(error.localizedDescription)")
             return false
+        }
+    }
+
+    // Build Authorization header based on current mode
+    func buildAuthHeader(method: String, url: URL) -> String? {
+        switch authMode {
+        case .oauth1:
+            return oauth1Header(
+                method: method,
+                url: url,
+                consumerKey: apiKey,
+                consumerSecret: apiSecret,
+                token: accessToken1,
+                tokenSecret: accessTokenSecret1
+            )
+        case .oauth2:
+            return "Bearer \(accessToken2)"
         }
     }
 
@@ -494,7 +603,7 @@ struct ContentView: View {
         s.deletesThisHour += 1
         s.deletedTotal = (s.deletedTotal ?? 0) + 1
         deletedSoFar = s.deletedTotal ?? 0
-        totalIDs = max(totalIDs, deletedSoFar) // keep sane
+        totalIDs = max(totalIDs, deletedSoFar)
         saveState(s)
     }
 
@@ -529,7 +638,6 @@ struct ContentView: View {
     }
 
     func setFileOwnerOnlyPermissions(_ url: URL) {
-        // rw-------
         let attrs: [FileAttributeKey: Any] = [.posixPermissions: NSNumber(value: Int16(0o600))]
         try? FileManager.default.setAttributes(attrs, ofItemAtPath: url.path)
     }
@@ -537,5 +645,75 @@ struct ContentView: View {
     // MARK: - Logging
 
     func appendLog(_ s: String) { DispatchQueue.main.async { log.append(s + "\n") } }
-}
 
+    // MARK: - OAuth1 signer
+
+    func oauth1Header(method: String,
+                      url: URL,
+                      queryParams: [String: String] = [:],
+                      bodyParams: [String: String] = [:],
+                      consumerKey: String,
+                      consumerSecret: String,
+                      token: String,
+                      tokenSecret: String) -> String {
+
+        func pct(_ s: String) -> String {
+            var cs = CharacterSet.urlQueryAllowed
+            cs.remove(charactersIn: ":#[]@!$&'()*+,;=") // strict RFC 3986
+            return s.addingPercentEncoding(withAllowedCharacters: cs) ?? s
+        }
+
+        let nonce = UUID().uuidString.replacingOccurrences(of: "-", with: "")
+        let timestamp = String(Int(Date().timeIntervalSince1970))
+
+        var oauthParams: [String: String] = [
+            "oauth_consumer_key": consumerKey,
+            "oauth_nonce": nonce,
+            "oauth_signature_method": "HMAC-SHA1",
+            "oauth_timestamp": timestamp,
+            "oauth_token": token,
+            "oauth_version": "1.0"
+        ]
+
+        // Signature params = query + body + oauth
+        var sigParams = queryParams.merging(bodyParams) { $1 }.merging(oauthParams) { $1 }
+        let paramString = sigParams
+            .map { (pct($0.key), pct($0.value)) }
+            .sorted { $0.0 < $1.0 }
+            .map { "\($0.0)=\($0.1)" }
+            .joined(separator: "&")
+
+        let baseURL = URL(string: "\(url.scheme!)://\(url.host!)\(url.path)")!
+        let baseString = [
+            method.uppercased(),
+            pct(baseURL.absoluteString),
+            pct(paramString)
+        ].joined(separator: "&")
+
+        let signingKey = "\(pct(consumerSecret))&\(pct(tokenSecret))"
+
+        // HMAC-SHA1(baseString, signingKey)
+        let keyData = signingKey.data(using: .utf8)!
+        let msgData = baseString.data(using: .utf8)!
+        var hmac = [UInt8](repeating: 0, count: Int(CC_SHA1_DIGEST_LENGTH))
+        keyData.withUnsafeBytes { keyBytes in
+            msgData.withUnsafeBytes { msgBytes in
+                CCHmac(CCHmacAlgorithm(kCCHmacAlgSHA1),
+                       keyBytes.baseAddress, keyData.count,
+                       msgBytes.baseAddress, msgData.count,
+                       &hmac)
+            }
+        }
+        let sig = Data(hmac).base64EncodedString()
+        oauthParams["oauth_signature"] = sig
+
+        // Build final header with only oauth_* params
+        let header = "OAuth " + oauthParams
+            .map { (pct($0.key), pct($0.value)) }
+            .sorted { $0.0 < $1.0 }
+            .map { "\($0.0)=\"\($0.1)\"" }
+            .joined(separator: ", ")
+
+        return header
+    }
+}
