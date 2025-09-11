@@ -3,9 +3,8 @@ Delete replies, retweets, and/or likes from your X (formerly Twitter) account us
 
 A macOS SwiftUI app that works from your X data archive and official API tokens.
 
-## [Download XDele App here](https://github.com/yourusername/XDele/releases)
+## [Download XDele App here](https://github.com/IAmNathanPalmer/XDele/releases)
 
----
 
 ## Requirements
 - macOS 13 or later  
@@ -92,7 +91,8 @@ Click **Clear X data** to reset queues and state.
 - **No deletions happening**: confirm your token is user-scoped with write permissions, and your user ID is correct.  
 - **Nothing to do**: ensure the correct 'data/' folder is selected and filters aren’t too restrictive.  
 - **Progress stuck**: queues may be empty. Clear X data, re-select the folder, and restart.  
-- **macOS Gatekeeper warning**: right-click the app → **Open** to approve.  
+- **macOS Gatekeeper warning**: right-click the app → **Open** to approve.
+- If it keeps preventing you from opening the app you may have to go to Settings → Privacy & Security and specifically allow the app.
 
 ---
 
