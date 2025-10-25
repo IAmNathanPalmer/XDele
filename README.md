@@ -40,8 +40,6 @@ Once authenticated, your tokens are securely stored in the **macOS Keychain** (n
 
 After signing in, you’ll see a **green indicator** next to “Signed In” in the UI.
 
-![Authentication Screenshot](images/xd3.jpg)
-
 ---
 
 ## 3. Select and Load Your Archive
