@@ -1,17 +1,26 @@
 # XDele
-Delete replies, retweets, and/or likes from your X (formerly Twitter) account using the official free API with built-in throttling.
 
-A macOS SwiftUI app that works from your X data archive and official API tokens.
+**X (Twitter)** now enforces **paid API tiers** for all write and delete actions.  
+Free (X developer) accounts receive `429 Too Many Requests` or `403 Forbidden` on the first delete attempt, effectively blocking bulk deletion through the official API.
 
 ## [Download XDele App here](https://github.com/IAmNathanPalmer/XDele/releases)
 
+XDele v2.0 remains available as a fully working **macOS SwiftUI app** for archive parsing, dry-run simulation, and credential testing.  
+Actual deletion now only works for users with paid API access.
+
+The original idea was that users could bulk-delete replies, posts, retweets, and likes using the free API. this is no longer possible with the free API.
+Older versions have been removed. v2 source remains public under **AGPLv3** for anyone who wishes to fork, study, or adapt alternate deletion methods.
+
+### [Download XDele App](https://github.com/yourusername/XDele/releases)
+(v2.0 release - API limits and old versions removed)
+
 
 ## Requirements
-- macOS 13 or later  
-- X developer account with **OAuth 1.0a keys/tokens** (default, recommended)
-- (Optional) OAuth 2.0 user access token if you prefer using OAuth 2.0
-- Your X data archive (unzipped)
-- Xcode 15 or later if building the source and not just running the app
+- macOS 13.0 (Ventura) or newer  
+- Internet connection (for OAuth2 sign-in)  
+- An exported **X Archive** (unzipped, local folder)  
+- A valid **X Developer account** (for OAuth2 login)  
+- (Optional) Xcode 15 or later if building the source and not just running the app
 
 ![Screenshot](images/xd1.jpg)
 
@@ -27,67 +36,49 @@ A macOS SwiftUI app that works from your X data archive and official API tokens.
 ---
 
 ## 2. Authentication
-1. Create a project and app in the [X Developer Portal](https://developer.twitter.com). (Products → X API → Free plan)
-2. When prompted, save the **API Key**, **API Secret Key**, and **Bearer Token** (they are only shown once).
-3. Open the app’s **Keys and Tokens** tab:
-   - Generate an **Access Token** and **Access Token Secret** (user-specific).
-4. Copy these four OAuth 1.0a values (API Key, API Secret Key, Access Token, Access Token Secret) plus your numeric User ID for use in the app.
-   - OAuth 1.0a is the default and recommended mode.
-   - OAuth 2.0 is also supported — if you already have a valid OAuth 2.0 user token, switch to it in the app and paste your token instead.
-   - Password scraping or unofficial APIs are **not supported**.
+When you first open XDele, press **“Sign In”**.  
+A secure OAuth2 browser window will open - authenticate with your X developer account.  
+Once authenticated, your tokens are securely stored in the **macOS Keychain** (never plaintext).
 
-![Screenshot](images/xd3.jpg)
+After signing in, you’ll see a **green indicator** next to “Signed In” in the UI.
+
+![Authentication Screenshot](xd3.jpg)
 
 ---
 
-## 3. Build the App 
-(Skip if not building from source code, see [Releases](https://github.com/yourusername/XDele/releases) to just run the app.)  
+## 3. Select and Load Your Archive
 
-1. Open the project in Xcode.  
-2. Set the run target to **My Mac**.  
-3. Select **Product → Build (⌘B)**.  
-4. To locate the app: **Product → Show Build Folder in Finder → Build/Products/Debug/XDele.app**.  
-   - For a distributable build: **Product → Archive → Distribute → Copy App**.  
+1. Click **“Pick Archive”** and choose the **unzipped archive folder** you downloaded earlier.  
+2. The app will securely bookmark this folder for future sessions.  
+3. Once selected, XDele will automatically scan and count all tweet IDs found inside.
 
-![Screenshot](images/xd3.jpg)
+You’ll see a summary in the log, such as [INFO] Loaded 1,000 IDs from archive.
 
 ---
 
-## 4. First Run (Dry Run)
-1. Launch 'XDele.app'.  
-2. Fill in:  
-   - For **OAuth 1.0a** (default): API Key, API Secret Key, Access Token, Access Token Secret, plus User ID  
-   - For **OAuth 2.0**: switch Auth Mode to OAuth 2.0 and paste your user token plus User ID  
-   - **Folder**: select the unzipped 'data/' folder  
-   - **Max deletes per hour**: recommended 99 for the free API limits  
-3. Leave **Dry Run** checked to test first.  
-4. (Optional) Configure filters: include/exclude keywords, include retweets, unlike likes.  
-5. Click **Start**.  
-   - In Dry Run mode the app only logs actions:  
-     "Would delete … / Would unlike …"
+## 4. Run (or Simulate) Deletion
+
+- Enable **Dry Run** to simulate deletion without contacting the API.  
+- Click **Start** to begin the process.  
+- You can **Pause**, **Resume**, or **Cancel** at any time.
+
+**Note:**  
+Actual deletion via API only works for users with paid X API access. It will no longer succeed for free X API users.
 
 ---
 
-## 5. Real Run
-1. Uncheck **Dry Run**.  
-2. Click **Start**.  
-3. The app deletes and/or unlikes in micro-batches (up to 99/hour), auto-sleeps on rate limits, and resumes each hour.  
+## Developer Notes
+
+XDele demonstrates:
+- Full **OAuth2 PKCE** flow with `ASWebAuthenticationSession`
+- Secure **Keychain token storage**
+- **Security-scoped bookmarks** for sandboxed folder access
+- SwiftUI-based async task orchestration
+- Real-time **log streaming** with Pause/Resume/Cancel control 
 
 ---
 
-## 6. Data Storage
-App state is stored in:  
-'~/Library/Application Support/XDele/'
-
-- 'ids_to_delete.txt' — queue of tweet IDs  
-- 'likes_to_unlike.txt' — queue of like IDs  
-- 'x_delete_state.json' — progress and hourly window  
-
-Click **Clear X data** to reset queues and state.  
-
----
-
-## 7. Troubleshooting
+## Troubleshooting
 - **No deletions happening**: confirm your token is user-scoped with write permissions, and your user ID is correct.  
 - **Nothing to do**: ensure the correct 'data/' folder is selected and filters aren’t too restrictive.  
 - **Progress stuck**: queues may be empty. Clear X data, re-select the folder, and restart.  

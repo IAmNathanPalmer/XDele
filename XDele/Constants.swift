@@ -1,4 +1,4 @@
-// XDeleApp.swift
+// Constants.swift
 // XDele
 // © 2025 Nathaniel Palmer (@IAmNathanPalmer)
 // Licensed under the GNU AGPLv3
@@ -16,20 +16,10 @@
 //
 // https://www.gnu.org/licenses/agpl-3.0.html
 
-import SwiftUI
-
-@main
-struct XDeleApp: App {
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
-                // enforce a reasonable minimum so layout doesn't collapse
-                .frame(minWidth: 720, minHeight: 500)
-        }
-        // just give an initial size; let the user resize normally after that
-        .defaultSize(width: 900, height: 740)
-
-        // IMPORTANT: remove `.windowResizability(.contentSize)`
-        // We want a normal resizable window, not content-driven growth.
-    }
+enum XD {
+    static let clientID      = "TU9HNFgwekxmdEQ2YlYyUWN1aVQ6MTpjaQ"
+    static let redirectURI   = "xdele://callback"  // <- make sure this is in X Dev Portal callbacks, they MUST be exactly the same
+    static let scopes        = "tweet.read tweet.write tweet.moderate.write users.read offline.access"
+    static let authHost      = "twitter.com"
+    static let apiHost       = "api.x.com"
 }
