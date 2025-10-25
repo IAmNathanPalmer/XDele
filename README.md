@@ -40,7 +40,7 @@ Once authenticated, your tokens are securely stored in the **macOS Keychain** (n
 
 After signing in, you’ll see a **green indicator** next to “Signed In” in the UI.
 
-![Authentication Screenshot](xd3.jpg)
+![Authentication Screenshot](images/xd3.jpg)
 
 ---
 
