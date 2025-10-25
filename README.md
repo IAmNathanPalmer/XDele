@@ -1,9 +1,7 @@
 # XDele
 
 **X (Twitter)** now enforces **paid API tiers** for all write and delete actions.  
-Free (X developer) accounts receive `429 Too Many Requests` or `403 Forbidden` on the first delete attempt, effectively blocking bulk deletion through the official API.
-
-## [Download XDele App here](https://github.com/IAmNathanPalmer/XDele/releases)
+Free (X developer) accounts receive "429 Too Many Requests" or "403 Forbidden" on the first delete attempt, effectively blocking bulk deletion through the official API.
 
 XDele v2.0 remains available as a fully working **macOS SwiftUI app** for archive parsing, dry-run simulation, and credential testing.  
 Actual deletion now only works for users with paid API access.
@@ -70,7 +68,7 @@ Actual deletion via API only works for users with paid X API access. It will no 
 ## Developer Notes
 
 XDele demonstrates:
-- Full **OAuth2 PKCE** flow with `ASWebAuthenticationSession`
+- Full **OAuth2 PKCE** flow with "ASWebAuthenticationSession"
 - Secure **Keychain token storage**
 - **Security-scoped bookmarks** for sandboxed folder access
 - SwiftUI-based async task orchestration
